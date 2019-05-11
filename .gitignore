@@ -4,6 +4,8 @@
 
 /.vs
 /__DISC__
+/_CommonRedist
+/ShaderCache
 *.DAT
 *.HDR
 *.exe
