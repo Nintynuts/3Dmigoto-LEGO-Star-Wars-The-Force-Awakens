@@ -77,34 +77,24 @@ void main(
 	uint4 bitmask, uiDest;
 	float4 fDest;
 
-	r0.xyz = g_InstanceVS.vs_world._m10_m11_m12 * v0.yyy;
-	r0.xyz = v0.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r0.xyz;
-	r0.xyz = v0.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r0.xyz;
-	r0.xyz = g_InstanceVS.vs_world._m30_m31_m32 + r0.xyz;
-	r1.xyzw = g_CameraVS.vs_viewProj._m10_m11_m12_m13 * r0.yyyy;
-	r1.xyzw = r0.xxxx * g_CameraVS.vs_viewProj._m00_m01_m02_m03 + r1.xyzw;
-	r1.xyzw = r0.zzzz * g_CameraVS.vs_viewProj._m20_m21_m22_m23 + r1.xyzw;
-	o0.xyzw = g_CameraVS.vs_viewProj._m30_m31_m32_m33 + r1.xyzw;
+	r0.xyzw = mul(v0, g_InstanceVS.vs_world);
+	o0.xyzw = mul(r0, g_CameraVS.vs_viewProj);
 	
 	float4 stereo = StereoParams.Load(0);
 	float4 iniParams = IniParams.Load(0);
 	
 	float4 tex_filter = IniParams.Load(int2(2,0));
+	if (tex_filter.x == 1)
+		o0.x += stereo.x * (o0.w - stereo.y) * 0.75;
+	
 	if (tex_filter.x == 2)
-	{
-	o0.x -= stereo.x * (o0.w - stereo.y) * iniParams.x;
-	}
+		o0.x -= stereo.x * (o0.w - stereo.y) * iniParams.x;
 	
 	if (tex_filter.x == 5)
-	{
-	o0.x -= stereo.x * (o0.w - stereo.y) * iniParams.y;
-	}
+		o0.x -= stereo.x * (o0.w - stereo.y) * iniParams.y;
 	
 	if (tex_filter.x == 6)
-	{
-	//o0.x -= stereo.x * (o0.w - stereo.y);
-	o0 = 0;
-	}
+		o0 = 0;
 	
 	r0.w = saturate(-r0.y * g_FogTexVS.vs_fog_tex_params.x + 1);
 	r0.xyz = -g_CameraVS.vs_worldCamPos.xyz + r0.xyz;

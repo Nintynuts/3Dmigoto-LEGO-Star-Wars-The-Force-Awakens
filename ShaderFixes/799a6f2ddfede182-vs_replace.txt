@@ -1,4 +1,4 @@
-// HUD
+// Studs
 
 cbuffer g_CameraVS_CB : register(b0)
 {
@@ -59,6 +59,15 @@ cbuffer g_MiscGroup1VS_Frequent_CB : register(b4)
 	} g_MiscGroup1VS_Frequent : packoffset(c0);
 }
 
+struct Vertex
+{
+	float3 POSITION; // R32G32B32_FLOAT
+	uint NORMAL; // R8G8B8A8_UNORM
+	uint COLOR; // B8G8R8A8_UNORM
+	float2 TEXCOORD; // R32G32_FLOAT
+};
+StructuredBuffer<Vertex> VertexBuffer : register(t100);
+
 // 3Dmigoto declarations
 #define cmp -
 Texture1D<float4> IniParams : register(t120);
@@ -69,6 +78,7 @@ void main(
 	float4 v1 : NORMAL0,
 	float4 v2 : COLOR0,
 	float2 v3 : TEXCOORD0,
+	uint vID : SV_VertexID,
 	out float4 o0 : SV_Position0,
 	out float4 o1 : TEXCOORD0,
 	out float3 o2 : TEXCOORD1)
@@ -78,18 +88,20 @@ void main(
 	uint4 bitmask, uiDest;
 	float4 fDest;
 
-	r0.xyz = g_InstanceVS.vs_world._m10_m11_m12 * v0.yyy;
-	r0.xyz = v0.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r0.xyz;
-	r0.xyz = v0.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r0.xyz;
-	r0.xyz = g_InstanceVS.vs_world._m30_m31_m32 + r0.xyz;
-	r1.xyzw = g_CameraVS.vs_viewProj._m10_m11_m12_m13 * r0.yyyy;
-	r1.xyzw = r0.xxxx * g_CameraVS.vs_viewProj._m00_m01_m02_m03 + r1.xyzw;
-	r1.xyzw = r0.zzzz * g_CameraVS.vs_viewProj._m20_m21_m22_m23 + r1.xyzw;
-	o0.xyzw = g_CameraVS.vs_viewProj._m30_m31_m32_m33 + r1.xyzw;
+	r0 = mul(v0,g_InstanceVS.vs_world);
+	o0 = mul(r0,g_CameraVS.vs_viewProj);
 	
 	float4 stereo = StereoParams.Load(0);
 	float4 iniParams = IniParams.Load(0);
-	//o0.x -= stereo.x * (o0.w - stereo.y) * iniParams.x;
+	if (o0.w != 1 && o0.z < 1){
+		float4 centre;
+		centre.xyz = VertexBuffer[0].POSITION;
+		centre.w = 1;
+		centre.xy = (centre.xy + VertexBuffer[1].POSITION.xy) / 2;
+		centre = mul(centre,g_InstanceVS.vs_world);
+		centre = mul(centre,g_CameraVS.vs_viewProj);
+		o0.x -= stereo.x * (o0.w - stereo.y) * (centre.y * 1.5 - 0.75)* 1.2;
+	}
 	
 	r0.w = saturate(-r0.y * g_FogTexVS.vs_fog_tex_params.x + 1);
 	r0.xyz = -g_CameraVS.vs_worldCamPos.xyz + r0.xyz;
