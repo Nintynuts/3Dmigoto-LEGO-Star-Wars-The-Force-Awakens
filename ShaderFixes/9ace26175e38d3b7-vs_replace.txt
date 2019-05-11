@@ -74,18 +74,18 @@ void main(
 	
 	float4 stereo = StereoParams.Load(0);
 	float4 iniParams = IniParams.Load(0);
+	float4 tex_filter = IniParams.Load(int2(2,0));
 	
-	float4 tex_filter = IniParams.Load(int2(2,0));	
-	
-	if (tex_filter.x == 2){ // HUD
-		if (tex_filter.y)
+	if (!tex_filter.y) {
+		if (tex_filter.x == 2)
 			o0.x -= stereo.x * (o0.w - stereo.y) * iniParams.x;
-	} else if (tex_filter.x == 4) // Light Flares
-		o0.x += stereo.x * (o0.w - stereo.y) * 1.75;
-	else if (tex_filter.x == 3)
-		o0.x -= stereo.x * (o0.w - stereo.y) * (2.75 * stereo.y - 5.025); // Lens flares
-	else if (tex_filter.y)
-		o0.x -= stereo.x * 0.75;
+		else if (tex_filter.x == 4) // Light Flares
+			o0.x += stereo.x * (o0.w - stereo.y) * 1.75;
+		else if (tex_filter.x == 3)
+			o0.x -= stereo.x * (o0.w - stereo.y) * (2.75 * stereo.y - 5.025); // Lens flares
+		else
+			o0.x -= stereo.x;
+	}
 	
 	r0.xyz = v2.xyz;
 	r0.w = v1.w;
@@ -95,6 +95,5 @@ void main(
 	r0.z = 1;
 	o2.x = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[0].xyw);
 	o2.y = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[1].xyw);
-	
 	return;
 }

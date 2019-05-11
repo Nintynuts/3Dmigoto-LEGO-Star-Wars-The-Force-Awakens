@@ -1,0 +1,126 @@
+// Stud meter
+
+cbuffer g_CameraVS_CB : register(b0)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+
+}
+
+cbuffer g_MaterialVS_CB : register(b1)
+{
+	struct
+	{
+		float4 vs_layer0_diffuse;
+		float4 vs_bitangentFlip;
+		float4 vs_misc_params;
+		float4 vs_vtf_kOffset_kHeight;
+		float4 vs_ambientColor;
+		float4 vs_fxAttributes;
+		float4 vs_vtf_direction;
+		float4 vs_UVMatrix01[4];
+		float4 vs_UVMatrix23[4];
+		float4 vs_bias;
+	} g_MaterialVS : packoffset(c0);
+
+}
+
+cbuffer g_FogTexVS_CB : register(b2)
+{
+	struct
+	{
+		float4 vs_fog_tex_params;
+	} g_FogTexVS : packoffset(c0);
+
+}
+
+cbuffer g_InstanceVS_CB : register(b3)
+{
+	struct
+	{
+		row_major float4x4 vs_world;
+	} g_InstanceVS : packoffset(c0);
+
+}
+
+cbuffer g_MiscGroup1VS_Frequent_CB : register(b4)
+{
+	struct
+	{
+		float4 vs_lightmapOffset;
+		float4 vs_kTint;
+		float4 vs_defunct;
+		float4 vs_fastBlendWeights;
+	} g_MiscGroup1VS_Frequent : packoffset(c0);
+
+}
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+
+void main(
+	float4 v0 : POSITION0,
+	float4 v1 : NORMAL0,
+	float4 v2 : COLOR1,
+	float2 v3 : TEXCOORD0,
+	out float4 o0 : SV_Position0,
+	out float4 o1 : TEXCOORD0,
+	out float2 o2 : TEXCOORD1,
+	out float2 p2 : COLOR0)
+{
+	float4 r0,r1;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.xyz = g_InstanceVS.vs_world._m10_m11_m12 * v0.yyy;
+	r0.xyz = v0.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r0.xyz;
+	r0.xyz = v0.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r0.xyz;
+	r0.xyz = g_InstanceVS.vs_world._m30_m31_m32 + r0.xyz;
+	r1.xyzw = g_CameraVS.vs_viewProj._m10_m11_m12_m13 * r0.yyyy;
+	r1.xyzw = r0.xxxx * g_CameraVS.vs_viewProj._m00_m01_m02_m03 + r1.xyzw;
+	r1.xyzw = r0.zzzz * g_CameraVS.vs_viewProj._m20_m21_m22_m23 + r1.xyzw;
+	o0.xyzw = g_CameraVS.vs_viewProj._m30_m31_m32_m33 + r1.xyzw;
+	
+	float4 stereo = StereoParams.Load(0);
+	float4 iniParams = IniParams.Load(0);
+	float4 tex_filter = IniParams.Load(int2(2,0));
+	if (tex_filter.y)
+		o0.x -= stereo.x * (o0.w - stereo.y);
+
+	r0.w = saturate(-r0.y * g_FogTexVS.vs_fog_tex_params.x + 1);
+	r0.xyz = -g_CameraVS.vs_worldCamPos.xyz + r0.xyz;
+	r1.x = dot(r0.xyz, r0.xyz);
+	r1.y = rsqrt(r1.x);
+	r1.x = sqrt(r1.x);
+	r1.x = 1 + r1.x;
+	r1.x = log2(r1.x);
+	r1.x = 0.0752566829 * r1.x;
+	o1.z = min(1, r1.x);
+	r0.xz = r1.yy * r0.xz;
+	r0.y = g_FogTexVS.vs_fog_tex_params.z + r0.y;
+	r0.y = log2(r0.y);
+	o2.x = saturate(r0.y * g_FogTexVS.vs_fog_tex_params.w + g_FogTexVS.vs_fog_tex_params.y);
+	r0.xy = r0.xz * r0.ww;
+	r0.xy = r0.xy * float2(0.5,0.5) + float2(0.5,0.5);
+	o1.w = r0.y;
+	o2.y = r0.x;
+	r0.xy = v3.xy;
+	r0.z = 1;
+	o1.x = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[0].xyw);
+	o1.y = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[1].xyw);
+	p2.x = g_MiscGroup1VS_Frequent.vs_kTint.w * v1.w;
+	p2.y = v2.x;
+	return;
+}
