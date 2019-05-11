@@ -1,0 +1,107 @@
+// Decals PS
+
+cbuffer g_CameraVS_CB : register(b13)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_BlobShadows_FS_CB : register(b0)
+{
+	struct
+	{
+		float4 Params;
+		float4 projParams;
+	} g_BlobShadows_FS : packoffset(c0);
+}
+
+SamplerState depth_tex_ss_s : register(s0);
+SamplerState g_NormalsTex_ss_s : register(s2);
+SamplerState blobShadow_tex_ss_s : register(s9);
+Texture2D<float4> depth_tex : register(t0);
+Texture2D<float4> g_NormalsTex : register(t2);
+Texture2D<float4> blobShadow_tex : register(t9);
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : SV_Position0,
+	float4 v1 : TEXCOORD0,
+	float4 v2 : COLOR0,
+	float4 v3 : TEXCOORD1,
+	float4 v4 : TEXCOORD2,
+	float4 v5 : TEXCOORD3,
+	float4 v6 : TEXCOORD4,
+	float4 v7 : TEXCOORD5,
+	out float4 o0 : SV_Target0)
+{
+	float4 r0,r1,r2;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.xy = v1.zw * float2(2,-2) + float2(-1,1);
+	r0.xy = -g_BlobShadows_FS.projParams.xy + r0.xy;
+	r0.xy = g_BlobShadows_FS.Params.xy * r0.xy;
+	r0.z = depth_tex.SampleLevel(depth_tex_ss_s, v1.xy, 0).x;
+	r0.z = -r0.z * g_BlobShadows_FS.projParams.w + 1;
+	r1.z = g_BlobShadows_FS.projParams.z / r0.z;
+	r1.y = r1.z * r0.y;
+	r1.x = r0.x * r1.z + g_BlobShadows_FS.Params.z;
+	r0.xyz = -v3.xyz + r1.xyz;
+	r1.xyz = v5.xyz * r0.yyy;
+	
+	float4 stereo = StereoParams.Load(0);
+	//r0.x -= stereo.x * (r0.z - stereo.y) * g_CameraVS.vs_inverse_projection_xy.x;
+	
+	r0.xyw = r0.xxx * v4.xyz + r1.xyz;
+	r0.xyz = r0.zzz * v6.xyz + r0.xyw;
+	r1.x = cmp(r0.y < 0);
+	r1.y = v4.w * r0.y;
+	r0.y = r0.y + r0.y;
+	r0.w = r1.x ? r1.y : r0.y;
+	r1.xyz = v3.www * r0.xwz;
+	r0.xy = v3.ww * r0.xz;
+	r0.xy = -r0.xy * float2(0.5,0.5) + float2(0.5,0.5);
+	r0.xyzw = blobShadow_tex.Sample(blobShadow_tex_ss_s, r0.xy).xyzw;
+	r1.x = dot(r1.xz, r1.xz);
+	r1.y = saturate(-abs(r1.y) * 2 + 2);
+	r1.x = sqrt(r1.x);
+	r1.x = cmp(r1.x < 1);
+	r1.x = r1.x ? v2.w : 0;
+	r2.xyz = r0.xyz * r0.xyz;
+	r2.xyz = r2.xyz * r2.xyz;
+	r2.xyz = r2.xyz * r0.xyz;
+	r0.xyz = r2.xyz * float3(0.5,0.5,0.5) + r0.xyz;
+	r1.zw = g_NormalsTex.Sample(g_NormalsTex_ss_s, v1.xy).xy;
+	r1.zw = r1.zw * float2(2,2) + float2(-1,-1);
+	r2.xy = -r1.zw * r1.zw + float2(1,1);
+	r1.zw = cmp(float2(0,0) < r1.zw);
+	r2.xy = r1.zw ? r2.xy : -r2.xy;
+	r1.z = dot(-r2.xy, r2.xy);
+	r1.z = 1 + r1.z;
+	r1.w = sqrt(r1.z);
+	r1.z = cmp(0 < r1.z);
+	r1.w = -r1.w;
+	r2.z = r1.z ? r1.w : 0;
+	r1.z = dot(r2.xyz, v7.xyz);
+	r1.w = r1.z * r1.z;
+	r2.w = saturate(r1.w * r1.z);
+	r2.xyz = v2.xyz;
+	r0.xyzw = r2.xyzw * r0.xyzw;
+	r0.w = r0.w * r1.x;
+	o0.xyz = r0.xyz;
+	o0.w = r0.w * r1.y;
+	return;
+}

@@ -1,0 +1,287 @@
+// Lights
+
+cbuffer g_CameraVS_CB : register(b13)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_Light_CB : register(b0)
+{
+	struct
+	{
+		float4 posDirRadius;
+		float4 color;
+		float4 params1;
+		float4 params2;
+		float4 params3;
+		float4 projectedTexCoordUAxis;
+		float4 projectedTexCoordVAxis;
+		float4 fadeColor;
+		row_major float4x4 spotViewProj;
+		row_major float4x4 view2LightObj;
+		float4 spotDir;
+	} g_Light : packoffset(c0);
+}
+
+cbuffer g_FogParams_CB : register(b1)
+{
+	struct
+	{
+		float4 tex_params1;
+		float4 tex_params2;
+		row_major float4x4 invViewMtx;
+	} g_FogParams : packoffset(c0);
+}
+
+cbuffer g_ShadowCommon_CB : register(b2)
+{
+	struct
+	{
+		float4 shadowFactors;
+		float4 lightDirPos;
+		float4 params;
+	} g_ShadowCommon : packoffset(c0);
+}
+
+cbuffer g_ShadowCascade_CB : register(b3)
+{
+	struct
+	{
+		row_major float4x4 eye2lightProjMtx;
+		float4 MinRadius;
+		float4 MaxRadius;
+		float4 CascadeUScale;
+		float4 CascadeVScale;
+		float4 CascadeUShift;
+		float4 CascadeVShift;
+		float4 CascadeZScale;
+		float4 CascadeZShift;
+		float4 softShadowFixedSpread;
+		float4 softShadowSpreadRatio;
+		float4 noiseScale;
+	} g_ShadowCascade : packoffset(c0);
+}
+
+SamplerState g_SceneDepthTex_ss_s : register(s0);
+SamplerState g_NormalsTex_ss_s : register(s2);
+SamplerState g_AlbedoAlphaDecodeTex_ss_s : register(s3);
+SamplerState g_AlbedoTex_ss_s : register(s6);
+SamplerState g_ProjectedTex_ss_s : register(s7);
+SamplerState g_NoiseTex_ss_s : register(s8);
+SamplerState g_FogAmountTex_ss_s : register(s11);
+SamplerState g_FogScatteringColorTex_ss_s : register(s12);
+SamplerComparisonState g_ShadowMapTexCMP_ss_s : register(s4);
+Texture2D<float4> g_SceneDepthTex : register(t0);
+Texture2D<float4> g_NormalsTex : register(t2);
+Texture2D<float4> g_AlbedoAlphaDecodeTex : register(t3);
+Texture2D<float4> g_ShadowMapTexCMP : register(t4);
+Texture2D<float4> g_AlbedoTex : register(t6);
+Texture2D<float4> g_ProjectedTex : register(t7);
+Texture2D<float4> g_NoiseTex : register(t8);
+Texture2D<float4> g_FogAmountTex : register(t11);
+Texture2D<float4> g_FogScatteringColorTex : register(t12);
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : SV_Position0,
+	float4 v1 : TEXCOORD0,
+	float4 v2 : TEXCOORD1,
+	float4 v3 : TEXCOORD2,
+	out float4 o0 : SV_Target0)
+{
+	const float4 icb[] = { { -0.0184659399, -0.158486500, 0.159558639, 0},
+															{ 0.183630407, 0.0532207489, 0.191187277, 0},
+															{ -0.255875796, 0.0784208924, 0.267623365, 0},
+															{ 0.112289399, 0.316145211, 0.335494697, 0},
+															{ 0.202208102, -0.347241789, 0.401827067, 0},
+															{ -0.162316903, 0.375075608, 0.408691168, 0},
+															{ -0.254958600, -0.374097705, 0.452717334, 0},
+															{ 0.451305687, -0.0454316288, 0.453586668, 0},
+															{ 0.380623788, 0.365063190, 0.527395129, 0},
+															{ -0.505893171, -0.291339695, 0.583786547, 0},
+															{ -0.568656921, 0.234231606, 0.615008235, 0},
+															{ -0.166199103, -0.627284884, 0.648928702, 0},
+															{ 0.108128101, 0.650260627, 0.659189284, 0},
+															{ 0.584277213, -0.319373190, 0.665867150, 0},
+															{ -0.472830504, 0.500121295, 0.688251376, 0},
+															{ 0.395033598, -0.565626383, 0.689916492, 0},
+															{ -0.708871424, -0.112561, 0.717752516, 0},
+															{ -0.514898300, -0.563177824, 0.763078928, 0},
+															{ -0.120559901, 0.774356127, 0.783684909, 0},
+															{ 0.762586772, 0.241588205, 0.799939692, 0},
+															{ 0.348972410, 0.726080596, 0.805589736, 0},
+															{ 0.186639801, -0.784788, 0.806676269, 0},
+															{ 0.832707, -0.182398304, 0.852449477, 0},
+															{ 0.629578471, 0.602167308, 0.871191442, 0},
+															{ -0.879737198, 0.0833734572, 0.883679032, 0},
+															{ -0.418489188, 0.799447775, 0.902358, 0},
+															{ 0.758885384, -0.502526402, 0.910186708, 0},
+															{ -0.0835375637, -0.944558620, 0.948245466, 0},
+															{ 0.563755214, -0.770139813, 0.954429269, 0},
+															{ -0.869884729, -0.394686311, 0.955236435, 0},
+															{ -0.694237173, 0.686438680, 0.976300836, 0},
+															{ -0.379430801, -0.900226, 0.976920962, 0},
+															{ -0.919416428, 0.336052597, 0.978906453, 0},
+															{ 0.872357428, 0.479793787, 0.995595038, 0},
+															{ 0.261777312, 0.963558316, 0.998484850, 0} };
+	float4 r0,r1,r2,r3,r4,r5,r6,r7,r8;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.x = g_SceneDepthTex.SampleLevel(g_SceneDepthTex_ss_s, v1.xy, 0).x;
+	r0.x = -r0.x * v2.y + 1;
+	r0.z = v2.x / r0.x;
+	r1.x = v2.w;
+	r1.y = 0;
+	r0.xy = v1.zw * r0.zz + r1.xy;
+	r1.xyzw = g_AlbedoTex.Sample(g_AlbedoTex_ss_s, v1.xy).xyzw;
+	r2.xyz = r1.xyz * r1.xyz;
+	r3.xyz = g_AlbedoAlphaDecodeTex.Sample(g_AlbedoAlphaDecodeTex_ss_s, r1.ww).xyz;
+	r4.xyzw = g_NormalsTex.Sample(g_NormalsTex_ss_s, v1.xy).xyzw;
+	r1.w = cmp(0 < r3.y);
+	r3.yw = r4.xy * float2(2,2) + float2(-1,-1);
+	r4.xy = -r3.yw * r3.yw + float2(1,1);
+	r3.yw = cmp(float2(0,0) < r3.yw);
+	r5.xy = r3.yw ? r4.xy : -r4.xy;
+	r2.w = dot(-r5.xy, r5.xy);
+	r2.w = 1 + r2.w;
+	r3.y = cmp(0 < r2.w);
+	r2.w = sqrt(r2.w);
+	r2.w = -r2.w;
+	r2.w = r3.y ? r2.w : 0;
+	r5.z = r1.w ? -r2.w : r2.w;
+	r1.w = r4.w * r4.w + 0.00499999989;
+	r1.w = 1 / r1.w;
+	r2.w = r1.w * 0.5 + 1;
+	r2.w = r4.z * r2.w;
+	
+	 float4 stereo = StereoParams.Load(0);
+	float4 iniParams = IniParams.Load(0);
+	r0.x -= stereo.x * (r0.z - stereo.y) * g_CameraVS.vs_inverse_projection_xy.x;
+	
+	r4.xyz = g_ShadowCascade.eye2lightProjMtx._m10_m11_m12 * r0.yyy;
+	r4.xyz = r0.xxx * g_ShadowCascade.eye2lightProjMtx._m00_m01_m02 + r4.xyz;
+	r4.xyz = r0.zzz * g_ShadowCascade.eye2lightProjMtx._m20_m21_m22 + r4.xyz;
+	r4.xyz = g_ShadowCascade.eye2lightProjMtx._m30_m31_m32 + r4.xyz;
+	r3.y = max(abs(r4.x), abs(r4.y));
+	r6.xyzw = cmp(r3.yyyy >= g_ShadowCascade.MinRadius.xyzw);
+	r6.xyzw = r6.xyzw ? 1.000000 : 0;
+	r7.xyzw = cmp(r3.yyyy < g_ShadowCascade.MaxRadius.xyzw);
+	r7.xyzw = r7.xyzw ? 1.000000 : 0;
+	r6.xyzw = r7.xyzw * r6.xyzw;
+	r7.x = dot(r6.xyzw, g_ShadowCascade.CascadeUScale.xyzw);
+	r7.y = dot(r6.xyzw, g_ShadowCascade.CascadeVScale.xyzw);
+	r7.z = dot(r6.xyzw, g_ShadowCascade.CascadeZScale.xyzw);
+	r8.x = dot(r6.xyzw, g_ShadowCascade.CascadeUShift.xyzw);
+	r8.y = dot(r6.xyzw, g_ShadowCascade.CascadeVShift.xyzw);
+	r8.z = dot(r6.xyzw, g_ShadowCascade.CascadeZShift.xyzw);
+	r4.xyz = r4.xyz * r7.xyz + r8.xyz;
+	r3.y = dot(r6.xyzw, float4(1,1,1,1));
+	r3.y = cmp(0 < r3.y);
+	r3.y = r3.y ? 1.000000 : 0;
+	r7.xyz = r4.xyz * r3.yyy;
+	r3.w = dot(g_ShadowCascade.softShadowFixedSpread.xyzw, r6.xyzw);
+	r4.z = dot(g_ShadowCascade.noiseScale.xyzw, r6.xyzw);
+	r4.w = min(0.99000001, r7.z);
+	r5.w = (int)g_ShadowCommon.params.x;
+	r7.y = g_ShadowCommon.params.z * r7.y;
+	r6.xy = r7.xy * r4.zz;
+	r6.xy = g_NoiseTex.Sample(g_NoiseTex_ss_s, r6.xy).xy;
+	r6.xy = r6.xy * float2(2,2) + float2(-1,-1);
+	r4.z = (int)r5.w + -1;
+	r3.w = 0.0009765625 * r3.w;
+	r3.w = r3.w / icb[r4.z+0].z;
+	r6.z = -r6.y;
+	r7.xy = float2(0,0);
+	r4.z = 0;
+	while (true) {
+		r6.w = cmp((int)r4.z >= (int)r5.w);
+		if (r6.w != 0) break;
+		r7.zw = icb[r4.z+0].xy * r3.ww;
+		r8.x = dot(r7.zw, r6.xz);
+		r6.w = dot(r7.wz, r6.xy);
+		r8.y = g_ShadowCommon.params.w * r6.w;
+		r7.zw = r4.xy * r3.yy + r8.xy;
+		r6.w = g_ShadowMapTexCMP.SampleCmpLevelZero(g_ShadowMapTexCMP_ss_s, r7.zw, r4.w).x;
+		r7.x = r7.x + r6.w;
+		r7.y = 1 + r7.y;
+		r4.z = (int)r4.z + 1;
+	}
+	r3.y = r7.x / r7.y;
+	r3.w = saturate(r0.z * g_ShadowCommon.shadowFactors.y + g_ShadowCommon.shadowFactors.z);
+	r3.y = r3.y * r3.w;
+	r0.w = 1;
+	r4.x = dot(r0.xyzw, g_Light.projectedTexCoordUAxis.xyzw);
+	r4.y = dot(r0.xyzw, g_Light.projectedTexCoordVAxis.xyzw);
+	r4.xyz = g_ProjectedTex.Sample(g_ProjectedTex_ss_s, r4.xy).xyz;
+	r4.xyz = float3(-1,-1,-1) + r4.xyz;
+	r4.xyz = g_Light.fadeColor.www * r4.xyz + float3(1,1,1);
+	r4.xyz = g_Light.color.xyz * r4.xyz;
+	r4.xyz = g_Light.params1.yyy * r4.xyz;
+	r4.xyz = r4.xyz * r4.xyz;
+	r0.w = 1 + -r3.z;
+	r2.xyz = r2.xyz * r0.www;
+	r1.xyz = r1.xyz * r1.xyz + float3(-1,-1,-1);
+	r1.xyz = r3.zzz * r1.xyz + float3(1,1,1);
+	r0.w = dot(-r0.xyz, -r0.xyz);
+	r0.w = rsqrt(r0.w);
+	r6.xyz = -r0.xyz * r0.www;
+	r0.w = dot(r6.xyz, r5.xyz);
+	r0.w = r0.w + r0.w;
+	r6.xyz = r5.xyz * -r0.www + r6.xyz;
+	r0.w = saturate(-r3.y * r3.x + 1);
+	r3.xyz = r4.xyz * r0.www;
+	r0.w = saturate(dot(-g_Light.posDirRadius.xyz, r5.xyz));
+	r3.w = g_Light.params1.x * r0.w;
+	r4.xyz = r3.xyz * r0.www;
+	r0.w = dot(-r6.xyz, -g_Light.posDirRadius.xyz);
+	r0.w = max(1.00000001e-007, r0.w);
+	r0.w = log2(r0.w);
+	r0.w = r1.w * r0.w;
+	r0.w = exp2(r0.w);
+	r0.w = r0.w * r2.w;
+	r0.w = r0.w * r3.w;
+	r3.xyz = r3.xyz * r0.www;
+	r1.xyz = r3.xyz * r1.xyz;
+	r1.xyz = r2.xyz * r4.xyz + r1.xyz;
+	r2.xyz = g_FogParams.invViewMtx._m10_m11_m12 * r0.yyy;
+	r0.xyw = r0.xxx * g_FogParams.invViewMtx._m00_m01_m02 + r2.xyz;
+	r0.xyz = r0.zzz * g_FogParams.invViewMtx._m20_m21_m22 + r0.xyw;
+	r0.w = g_FogParams.invViewMtx._m31 + r0.y;
+	r1.w = dot(r0.xyz, r0.xyz);
+	r2.x = sqrt(r1.w);
+	r2.x = 1 + r2.x;
+	r2.x = log2(r2.x);
+	r2.x = 0.0752566829 * r2.x;
+	r2.y = min(1, r2.x);
+	r0.y = g_FogParams.tex_params2.z + r0.y;
+	r0.y = max(1, r0.y);
+	r0.y = log2(r0.y);
+	r2.x = saturate(r0.y * g_FogParams.tex_params2.w + g_FogParams.tex_params2.y);
+	r0.y = rsqrt(r1.w);
+	r0.xy = r0.xz * r0.yy;
+	r0.z = saturate(-r0.w * g_FogParams.tex_params2.x + 1);
+	r0.xy = r0.xy * r0.zz;
+	r0.xy = r0.xy * float2(0.5,0.5) + float2(0.5,0.5);
+	r0.z = g_FogAmountTex.Sample(g_FogAmountTex_ss_s, r2.xy).x;
+	r0.xyw = g_FogScatteringColorTex.Sample(g_FogScatteringColorTex_ss_s, r0.xy).xyz;
+	r0.xyw = r0.zzz * r0.xyw;
+	r1.w = 1 + -r0.z;
+	o0.xyz = r1.xyz * r1.www + r0.xyw;
+	o0.w = r0.z;
+	return;
+}

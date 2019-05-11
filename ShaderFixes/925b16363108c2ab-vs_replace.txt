@@ -1,0 +1,59 @@
+// DEcals VS
+
+cbuffer g_MiscGroup2VS_Infrequent_CB : register(b0)
+{
+	struct
+	{
+		float4 vs_wind_params;
+		float4 vs_screenSize;
+		float4 vs_viewportScaleBias;
+		float4 vs_halfPixelOffset;
+		float4 vs_screenDoorScaleBias;
+	} g_MiscGroup2VS_Infrequent : packoffset(c0);
+}
+
+cbuffer g_BlobShadows_VS_CB : register(b1)
+{
+	struct
+	{
+		float4 PosScale;
+		float4 ShadowColour;
+		float4 InvWorldView1;
+		float4 InvWorldView2;
+		float4 InvWorldView3;
+		float4 UpVector;
+	} g_BlobShadows_VS : packoffset(c0);
+}
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : POSITION0,
+	float2 v1 : TEXCOORD0,
+	out float4 o0 : SV_Position0,
+	out float4 o1 : TEXCOORD0,
+	out float4 o2 : COLOR0,
+	out float4 o3 : TEXCOORD1,
+	out float4 o4 : TEXCOORD2,
+	out float4 o5 : TEXCOORD3,
+	out float4 o6 : TEXCOORD4,
+	out float4 o7 : TEXCOORD5)
+{
+	o0.xyzw = v0.xyzw;
+	
+	float4 stereo = StereoParams.Load(0);
+	//o0.x -= stereo.x * (o0.w - stereo.y);
+	
+	o1.xy = v1.xy * g_MiscGroup2VS_Infrequent.vs_viewportScaleBias.zw + g_MiscGroup2VS_Infrequent.vs_viewportScaleBias.xy;
+	o1.zw = v1.xy;
+	o2.xyzw = g_BlobShadows_VS.ShadowColour.xyzw;
+	o3.xyzw = g_BlobShadows_VS.PosScale.xyzw;
+	o4.xyzw = g_BlobShadows_VS.InvWorldView1.xyzw;
+	o5.xyzw = g_BlobShadows_VS.InvWorldView2.xyzw;
+	o6.xyzw = g_BlobShadows_VS.InvWorldView3.xyzw;
+	o7.xyzw = g_BlobShadows_VS.UpVector.xyzw;
+	return;
+}

@@ -1,0 +1,13 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+/__DISC__
+*.DAT
+*.HDR
+*.exe
+*.backup
+*.dll
+*.bat
+/d3dx_user.ini

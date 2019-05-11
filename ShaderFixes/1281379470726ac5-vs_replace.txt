@@ -1,0 +1,49 @@
+// shadows
+
+cbuffer g_CameraVS_CB : register(b0)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_InstanceVS_CB : register(b1)
+{
+	struct
+	{
+		row_major float4x4 vs_world;
+	} g_InstanceVS : packoffset(c0);
+}
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : POSITION0,
+	out float4 o0 : SV_Position0)
+{
+	float4 r0,r1;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.xyz = g_InstanceVS.vs_world._m10_m11_m12 * v0.yyy;
+	r0.xyz = v0.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r0.xyz;
+	r0.xyz = v0.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r0.xyz;
+	r0.xyz = g_InstanceVS.vs_world._m30_m31_m32 + r0.xyz;
+	r1.xyzw = g_CameraVS.vs_viewProj._m10_m11_m12_m13 * r0.yyyy;
+	r1.xyzw = r0.xxxx * g_CameraVS.vs_viewProj._m00_m01_m02_m03 + r1.xyzw;
+	r0.xyzw = r0.zzzz * g_CameraVS.vs_viewProj._m20_m21_m22_m23 + r1.xyzw;
+	o0.xyzw = g_CameraVS.vs_viewProj._m30_m31_m32_m33 + r0.xyzw;
+	
+	return;
+}

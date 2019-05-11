@@ -1,0 +1,159 @@
+// Halo glass
+
+cbuffer g_CameraVS_CB : register(b0)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_MaterialVS_CB : register(b1)
+{
+	struct
+	{
+		float4 vs_layer0_diffuse;
+		float4 vs_bitangentFlip;
+		float4 vs_misc_params;
+		float4 vs_vtf_kOffset_kHeight;
+		float4 vs_ambientColor;
+		float4 vs_fxAttributes;
+		float4 vs_vtf_direction;
+		float4 vs_UVMatrix01[4];
+		float4 vs_UVMatrix23[4];
+		float4 vs_bias;
+	} g_MaterialVS : packoffset(c0);
+}
+
+cbuffer g_FogTexVS_CB : register(b2)
+{
+	struct
+	{
+		float4 vs_fog_tex_params;
+	} g_FogTexVS : packoffset(c0);
+}
+
+cbuffer g_InstanceVS_CB : register(b3)
+{
+	struct
+	{
+		row_major float4x4 vs_world;
+	} g_InstanceVS : packoffset(c0);
+}
+
+cbuffer g_MiscGroup1VS_Frequent_CB : register(b4)
+{
+	struct
+	{
+		float4 vs_lightmapOffset;
+		float4 vs_kTint;
+		float4 vs_defunct;
+		float4 vs_fastBlendWeights;
+	} g_MiscGroup1VS_Frequent : packoffset(c0);
+}
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : POSITION0,
+	float4 v1 : NORMAL0,
+	float4 v2 : COLOR0,
+	float4 v3 : TANGENT0,
+	float4 v4 : TEXCOORD0,
+	out float4 o0 : SV_Position0,
+	out float4 o1 : TEXCOORD0,
+	out float4 o2 : TEXCOORD1,
+	out float4 o3 : TEXCOORD2,
+	out float4 o4 : TEXCOORD3,
+	out float4 o5 : TEXCOORD4,
+	out float3 o6 : TEXCOORD5,
+	out float4 o7 : COLOR0)
+{
+	float4 r0,r1,r2,r3,r4;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.xyz = g_InstanceVS.vs_world._m10_m11_m12 * v0.yyy;
+	r0.xyz = v0.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r0.xyz;
+	r0.xyz = v0.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r0.xyz;
+	r0.xyz = g_InstanceVS.vs_world._m30_m31_m32 + r0.xyz;
+	r1.xyzw = g_CameraVS.vs_viewProj._m10_m11_m12_m13 * r0.yyyy;
+	r1.xyzw = r0.xxxx * g_CameraVS.vs_viewProj._m00_m01_m02_m03 + r1.xyzw;
+	r1.xyzw = r0.zzzz * g_CameraVS.vs_viewProj._m20_m21_m22_m23 + r1.xyzw;
+	r1.xyzw = g_CameraVS.vs_viewProj._m30_m31_m32_m33 + r1.xyzw;
+	o0.xyzw = r1.xyzw;
+	
+	float4 stereo = StereoParams.Load(0);
+	r1.x += stereo.x * (r1.w - stereo.y);
+	
+	r2.xyz = g_CameraVS.vs_view._m10_m11_m12 * r0.yyy;
+	r2.xyz = r0.xxx * g_CameraVS.vs_view._m00_m01_m02 + r2.xyz;
+	r2.xyz = r0.zzz * g_CameraVS.vs_view._m20_m21_m22 + r2.xyz;
+	o1.xyz = g_CameraVS.vs_view._m30_m31_m32 + r2.xyz;
+	r0.xzw = -g_CameraVS.vs_worldCamPos.xyz + r0.xyz;
+	r0.y = saturate(-r0.y * g_FogTexVS.vs_fog_tex_params.x + 1);
+	r1.z = dot(r0.xzw, r0.xzw);
+	r2.x = sqrt(r1.z);
+	r1.z = rsqrt(r1.z);
+	r0.xw = r1.zz * r0.xw;
+	r0.z = g_FogTexVS.vs_fog_tex_params.z + r0.z;
+	r0.z = log2(r0.z);
+	r3.x = saturate(r0.z * g_FogTexVS.vs_fog_tex_params.w + g_FogTexVS.vs_fog_tex_params.y);
+	r0.xy = r0.xw * r0.yy;
+	r3.yz = r0.xy * float2(0.5,0.5) + float2(0.5,0.5);
+	r0.x = 1 + r2.x;
+	r0.x = log2(r0.x);
+	r0.x = 0.0752566829 * r0.x;
+	o1.w = min(1, r0.x);
+	r0.xyz = v1.xyz * float3(2.00787401,2.00787401,2.00787401) + float3(-1,-1,-1);
+	r2.xyz = g_InstanceVS.vs_world._m10_m11_m12 * r0.yyy;
+	r0.xyw = r0.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r2.xyz;
+	r0.xyz = r0.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r0.xyw;
+	r2.xyz = g_CameraVS.vs_view._m10_m11_m12 * r0.yyy;
+	r0.xyw = r0.xxx * g_CameraVS.vs_view._m00_m01_m02 + r2.xyz;
+	r0.xyz = r0.zzz * g_CameraVS.vs_view._m20_m21_m22 + r0.xyw;
+	r0.w = dot(r0.xyz, r0.xyz);
+	r0.w = rsqrt(r0.w);
+	r0.xyz = r0.xyz * r0.www;
+	r2.xyz = v3.xyz * float3(2,2,2) + float3(-1,-1,-1);
+	r4.xyz = g_InstanceVS.vs_world._m10_m11_m12 * r2.yyy;
+	r2.xyw = r2.xxx * g_InstanceVS.vs_world._m00_m01_m02 + r4.xyz;
+	r2.xyz = r2.zzz * g_InstanceVS.vs_world._m20_m21_m22 + r2.xyw;
+	r4.xyz = g_CameraVS.vs_view._m10_m11_m12 * r2.yyy;
+	r2.xyw = r2.xxx * g_CameraVS.vs_view._m00_m01_m02 + r4.xyz;
+	r2.xyz = r2.zzz * g_CameraVS.vs_view._m20_m21_m22 + r2.xyw;
+	r0.w = dot(r2.xyz, r2.xyz);
+	r0.w = rsqrt(r0.w);
+	r2.xyz = r2.xyz * r0.www;
+	r4.xyz = r2.zxy * r0.yzx;
+	r4.xyz = r2.yzx * r0.zxy + -r4.xyz;
+	o3.xyz = r0.xyz;
+	o4.xyz = r2.xyz;
+	o2.xyz = g_MaterialVS.vs_bitangentFlip.xxx * r4.xyz;
+	o2.w = r1.y;
+	o3.w = r1.w;
+	r3.w = r1.x;
+	o6.xyz = r3.wxy;
+	o4.w = r3.z;
+	r0.xy = v4.xy;
+	r0.z = 1;
+	o5.z = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[0].xyw);
+	o5.w = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[1].xyw);
+	r0.xy = v4.zw;
+	r0.z = 1;
+	o5.x = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[2].xyw);
+	o5.y = dot(r0.xyz, g_MaterialVS.vs_UVMatrix01[3].xyw);
+	o7.xyz = saturate(g_MiscGroup1VS_Frequent.vs_kTint.xyz * v2.xyz);
+	o7.w = g_MiscGroup1VS_Frequent.vs_kTint.w * v1.w;
+	return;
+}

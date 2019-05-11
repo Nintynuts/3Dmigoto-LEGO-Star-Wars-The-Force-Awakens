@@ -1,0 +1,78 @@
+// 2D Stars
+
+cbuffer g_CameraVS_CB : register(b0)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_SkyVS_CB : register(b1)
+{
+	struct
+	{
+		row_major float4x4 view;
+		float4 sunAngles;
+		float4 A;
+		float4 B;
+		float4 C;
+		float4 D;
+		float4 E;
+		float4 F;
+		float4 G;
+		float4 H;
+		float4 I;
+		float4 meanLuminanceSRGB;
+		float4 s;
+		float4 pows;
+		float4 inv_pows_minus_powe;
+		row_major float4x4 viewRotated;
+	} g_SkyVS : packoffset(c0);
+}
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : POSITION0,
+	out float4 o0 : SV_Position0,
+	out float4 o1 : TEXCOORD0,
+	out float4 o2 : TEXCOORD1,
+	out float4 o3 : TEXCOORD2)
+{
+	float4 r0;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	o0.xyzw = v0.xyww;
+	
+	float4 stereo = StereoParams.Load(0);
+	o0.x += stereo.x * stereo.y;
+	
+	
+	o1.w = 1;
+	r0.xy = v0.xy * g_CameraVS.vs_inverse_projection_xy.xy + g_CameraVS.vs_inverse_projection_xy.zw;
+	r0.z = 1;
+	r0.w = dot(r0.xyz, r0.xyz);
+	r0.w = rsqrt(r0.w);
+	r0.xyz = r0.xyz * r0.www;
+	o1.x = dot(g_SkyVS.view._m00_m01_m02, r0.xyz);
+	o1.y = dot(g_SkyVS.view._m10_m11_m12, r0.xyz);
+	o1.z = dot(g_SkyVS.view._m20_m21_m22, r0.xyz);
+	o2.x = dot(g_SkyVS.viewRotated._m00_m01_m02, r0.xyz);
+	o2.y = dot(g_SkyVS.viewRotated._m10_m11_m12, r0.xyz);
+	o2.z = dot(g_SkyVS.viewRotated._m20_m21_m22, r0.xyz);
+	o2.w = 0;
+	o3.xyzw = float4(0,0,0,0);
+	return;
+}

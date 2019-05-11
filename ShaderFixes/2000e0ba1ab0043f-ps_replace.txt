@@ -1,0 +1,112 @@
+// Lights from the light saber
+
+cbuffer g_CameraVS_CB : register(b13)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_Light_CB : register(b0)
+{
+	struct
+	{
+		float4 posDirRadius;
+		float4 color;
+		float4 params1;
+		float4 params2;
+		float4 params3;
+		float4 projectedTexCoordUAxis;
+		float4 projectedTexCoordVAxis;
+		float4 fadeColor;
+		row_major float4x4 spotViewProj;
+		row_major float4x4 view2LightObj;
+		float4 spotDir;
+	} g_Light : packoffset(c0);
+}
+
+SamplerState g_SceneDepthTex_ss_s : register(s0);
+SamplerState g_NormalsTex_ss_s : register(s2);
+SamplerState g_AlbedoAlphaDecodeTex_ss_s : register(s3);
+SamplerState g_AlbedoTex_ss_s : register(s6);
+SamplerState g_AttenuationTex_ss_s : register(s9);
+Texture2D<float4> g_SceneDepthTex : register(t0);
+Texture2D<float4> g_NormalsTex : register(t2);
+Texture2D<float4> g_AlbedoAlphaDecodeTex : register(t3);
+Texture2D<float4> g_AlbedoTex : register(t6);
+Texture2D<float4> g_AttenuationTex : register(t9);
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : SV_Position0,
+	float4 v1 : TEXCOORD0,
+	float4 v2 : TEXCOORD1,
+	float4 v3 : TEXCOORD2,
+	out float4 o0 : SV_Target0)
+{
+	float4 r0,r1,r2,r3;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.x = v2.w;
+	r0.y = 0;
+	r1.xyzw = v1.xyzw / v2.zzzz;
+	r0.z = g_SceneDepthTex.SampleLevel(g_SceneDepthTex_ss_s, r1.xy, 0).x;
+	r0.z = -r0.z * v2.y + 1;
+	r2.z = v2.x / r0.z;
+	r2.xy = r1.zw * r2.zz + r0.xy;
+	
+	float4 stereo = StereoParams.Load(0);
+	r2.x -= stereo.x * (r2.z - stereo.y) * g_CameraVS.vs_inverse_projection_xy.x;
+	
+	r0.xyz = g_Light.posDirRadius.xyz + -r2.xyz;
+	r0.w = dot(r0.xyz, r0.xyz);
+	r1.z = rsqrt(r0.w);
+	r0.w = sqrt(r0.w);
+	r2.x = g_Light.params1.z * r0.w;
+	r0.xyz = r1.zzz * r0.xyz;
+	r1.zw = g_NormalsTex.Sample(g_NormalsTex_ss_s, r1.xy).xy;
+	r3.xyzw = g_AlbedoTex.Sample(g_AlbedoTex_ss_s, r1.xy).xyzw;
+	r1.xy = r1.zw * float2(2,2) + float2(-1,-1);
+	r1.zw = -r1.xy * r1.xy + float2(1,1);
+	r1.xy = cmp(float2(0,0) < r1.xy);
+	r1.xy = r1.xy ? r1.zw : -r1.zw;
+	r0.w = dot(-r1.xy, r1.xy);
+	r0.w = 1 + r0.w;
+	r1.w = sqrt(r0.w);
+	r0.w = cmp(0 < r0.w);
+	r1.w = -r1.w;
+	r0.w = r0.w ? r1.w : 0;
+	r2.zw = g_AlbedoAlphaDecodeTex.Sample(g_AlbedoAlphaDecodeTex_ss_s, r3.ww).yz;
+	r3.xyz = r3.xyz * r3.xyz;
+	r1.w = cmp(0 < r2.z);
+	r2.z = 1 + -r2.w;
+	r3.xyz = r3.xyz * r2.zzz;
+	r1.z = r1.w ? -r0.w : r0.w;
+	r0.x = saturate(dot(r0.xyz, r1.xyz));
+	r2.y = g_Light.params3.w;
+	r0.yzw = g_AttenuationTex.Sample(g_AttenuationTex_ss_s, r2.xy).xyz;
+	r0.yzw = g_Light.posDirRadius.www * r0.yzw;
+	r0.yzw = max(float3(0,0,0), r0.yzw);
+	r0.yzw = g_Light.color.xyz * r0.yzw;
+	r0.yzw = r0.yzw * r0.yzw;
+	r0.xyz = r0.yzw * r0.xxx;
+	o0.xyz = r3.xyz * r0.xyz;
+	o0.w = 0;
+	
+	
+	
+	return;
+}

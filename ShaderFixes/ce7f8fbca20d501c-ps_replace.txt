@@ -1,0 +1,145 @@
+// Shadows *
+
+cbuffer g_CameraVS_CB : register(b13)
+{
+	struct
+	{
+		row_major float4x4 vs_viewProj;
+		row_major float4x4 vs_view;
+		float4 vs_worldCamPos;
+		float4 vs_projection_params;
+		float4 vs_inverse_projection_xy;
+		float4 vs_frustum_params;
+		float4 vs_inverse_projection2;
+		float4 vs_cameraOrigin;
+	} g_CameraVS : packoffset(c0);
+}
+
+cbuffer g_Light_CB : register(b0)
+{
+	struct
+	{
+		float4 posDirRadius;
+		float4 color;
+		float4 params1;
+		float4 params2;
+		float4 params3;
+		float4 projectedTexCoordUAxis;
+		float4 projectedTexCoordVAxis;
+		float4 fadeColor;
+		row_major float4x4 spotViewProj;
+		row_major float4x4 view2LightObj;
+		float4 spotDir;
+	} g_Light : packoffset(c0);
+}
+
+SamplerState g_SceneDepthTex_ss_s : register(s0);
+SamplerState g_NormalsTex_ss_s : register(s2);
+SamplerState g_AlbedoAlphaDecodeTex_ss_s : register(s3);
+SamplerState g_AlbedoTex_ss_s : register(s6);
+SamplerState g_ProjectedTex_ss_s : register(s7);
+SamplerState g_AttenuationTex_ss_s : register(s9);
+Texture2D<float4> g_SceneDepthTex : register(t0);
+Texture2D<float4> g_NormalsTex : register(t2);
+Texture2D<float4> g_AlbedoAlphaDecodeTex : register(t3);
+Texture2D<float4> g_AlbedoTex : register(t6);
+Texture2D<float4> g_ProjectedTex : register(t7);
+Texture2D<float4> g_AttenuationTex : register(t9);
+
+// 3Dmigoto declarations
+#define cmp -
+Texture1D<float4> IniParams : register(t120);
+Texture2D<float4> StereoParams : register(t125);
+
+void main( 
+	float4 v0 : SV_Position0,
+	float4 v1 : TEXCOORD0,
+	float4 v2 : TEXCOORD1,
+	float4 v3 : TEXCOORD2,
+	out float4 o0 : SV_Target0)
+{
+	float4 r0,r1,r2,r3,r4,r5;
+	uint4 bitmask, uiDest;
+	float4 fDest;
+
+	r0.x = v2.w;
+	r0.y = 0;
+	r1.xyzw = v1.xyzw / v2.zzzz;
+	r0.z = g_SceneDepthTex.SampleLevel(g_SceneDepthTex_ss_s, r1.xy, 0).x;
+	r0.z = -r0.z * v2.y + 1;
+	r2.z = v2.x / r0.z;
+	r2.xy = r1.zw * r2.zz + r0.xy;
+	r0.x = dot(-r2.xyz, -r2.xyz);
+	r0.x = rsqrt(r0.x);
+	r0.xyz = -r2.xyz * r0.xxx;
+	r3.xyzw = g_NormalsTex.Sample(g_NormalsTex_ss_s, r1.xy).xyzw;
+	r1.xyzw = g_AlbedoTex.Sample(g_AlbedoTex_ss_s, r1.xy).xyzw;
+	r3.xy = r3.xy * float2(2,2) + float2(-1,-1);
+	r4.xy = -r3.xy * r3.xy + float2(1,1);
+	r3.xy = cmp(float2(0,0) < r3.xy);
+	r4.xy = r3.xy ? r4.xy : -r4.xy;
+	r0.w = dot(-r4.xy, r4.xy);
+	r0.w = 1 + r0.w;
+	r2.w = sqrt(r0.w);
+	r0.w = cmp(0 < r0.w);
+	r2.w = -r2.w;
+	r0.w = r0.w ? r2.w : 0;
+	r3.xy = g_AlbedoAlphaDecodeTex.Sample(g_AlbedoAlphaDecodeTex_ss_s, r1.ww).yz;
+	r1.w = cmp(0 < r3.x);
+	r4.z = r1.w ? -r0.w : r0.w;
+	r0.w = dot(r0.xyz, r4.xyz);
+	r0.w = r0.w + r0.w;
+	r0.xyz = r4.xyz * -r0.www + r0.xyz;
+	r5.xyz = g_Light.posDirRadius.xyz + -r2.xyz;
+	r0.w = dot(r5.xyz, r5.xyz);
+	r0.w = rsqrt(r0.w);
+	r5.xyz = r5.xyz * r0.www;
+	r0.x = dot(-r0.xyz, r5.xyz);
+	r0.y = saturate(dot(r5.xyz, r4.xyz));
+	r0.x = max(1.00000001e-007, r0.x);
+	r0.x = log2(r0.x);
+	r0.z = r3.w * r3.w + 0.00499999989;
+	r0.z = 1 / r0.z;
+	r0.x = r0.z * r0.x;
+	r0.z = r0.z * 0.5 + 1;
+	r0.z = r3.z * r0.z;
+	r0.x = exp2(r0.x);
+	r0.x = r0.x * r0.z;
+	r0.z = g_Light.params1.x * r0.y;
+	r0.x = r0.x * r0.z;
+	
+	float4 stereo = StereoParams.Load(0);
+	float4 iniParams = IniParams.Load(0);
+	r2.x -= stereo.x * (r2.z - stereo.y) * g_CameraVS.vs_inverse_projection_xy.x;
+	
+	r1.x -= stereo.x * (r1.z - stereo.y) * g_CameraVS.vs_inverse_projection_xy.x;
+	
+	
+	r3.xzw = g_Light.spotViewProj._m10_m11_m13 * r2.yyy;
+	r2.xyw = r2.xxx * g_Light.spotViewProj._m00_m01_m03 + r3.xzw;
+	r2.xyz = r2.zzz * g_Light.spotViewProj._m20_m21_m23 + r2.xyw;
+	r2.xyz = g_Light.spotViewProj._m30_m31_m33 + r2.xyz;
+	r0.z = -g_Light.color.w + r2.z;
+	r2.xy = r2.xy / r2.zz;
+	r2.xy = r2.xy * g_Light.projectedTexCoordUAxis.xy + g_Light.projectedTexCoordUAxis.zw;
+	r2.xyzw = g_ProjectedTex.Sample(g_ProjectedTex_ss_s, r2.xy).xyzw;
+	r4.x = g_Light.params1.z * r0.z;
+	r4.y = g_Light.params3.w;
+	r3.xzw = g_AttenuationTex.Sample(g_AttenuationTex_ss_s, r4.xy).xyz;
+	r3.xzw = g_Light.posDirRadius.www * r3.xzw;
+	r3.xzw = r3.xzw * r2.www;
+	r2.xyz = g_Light.color.xyz * r2.xyz;
+	r2.xyz = r2.xyz * r3.xzw;
+	r2.xyz = r2.xyz * r2.xyz;
+	r0.xzw = r2.xyz * r0.xxx;
+	r2.xyz = r2.xyz * r0.yyy;
+	r3.xzw = r1.xyz * r1.xyz + float3(-1,-1,-1);
+	r1.xyz = r1.xyz * r1.xyz;
+	r3.xzw = r3.yyy * r3.xzw + float3(1,1,1);
+	r0.y = 1 + -r3.y;
+	r1.xyz = r1.xyz * r0.yyy;
+	r0.xyz = r3.xzw * r0.xzw;
+	o0.xyz = r1.xyz * r2.xyz + r0.xyz;
+	o0.w = 0;
+	return;
+}
